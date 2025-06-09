@@ -1,41 +1,48 @@
-// /api/saveCode.js
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
+export const config = {
+  runtime: 'edge',
+};
 
-  const { code, userId, hadiahEmail, hadiahPassword } = req.body;
-
-  if (!code || !userId || !hadiahEmail || !hadiahPassword) {
-    return res.status(400).json({ success: false, message: "Data tidak lengkap" });
+export default async function handler(req) {
+  if (req.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
   }
 
   try {
-    // Ambil env dari Vercel (pastikan sudah set)
-    const DATABASE_URL = process.env.FIREBASE_DATABASE_URL;
-    const url = `${DATABASE_URL}/claimCodes/${code}.json`;
-    const userUrl = `${DATABASE_URL}/claimUsers/${userId}.json`;
+    const body = await req.json();
 
-    // Simpan kode klaim (set true)
-    await fetch(url, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(true)
+    const { userId, code, hadiahEmail, hadiahPassword } = body;
+
+    if (!userId || !code || !hadiahEmail || !hadiahPassword) {
+      return new Response(JSON.stringify({ error: 'Missing field' }), { status: 400 });
+    }
+
+    // Ganti URL berikut dengan URL Firebase Realtime Database kamu
+    const firebaseURL = "https://e-commerce-a6fe2-default-rtdb.asia-southeast1.firebasedatabase.app";
+    const fullPath = `${firebaseURL}/claimUsers/${userId}.json`;
+
+    const data = {
+      code,
+      hadiahEmail,
+      hadiahPassword,
+      claimed: false,
+    };
+
+    const res = await fetch(fullPath, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
     });
 
-    // Simpan user + hadiah (email + password)
-    await fetch(userUrl, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code,
-        hadiahEmail,
-        hadiahPassword,
-        claimed: false
-      })
-    });
+    if (!res.ok) {
+      throw new Error('Failed to save to Firebase');
+    }
 
-    return res.status(200).json({ success: true });
-  } catch (error) {
-    console.error("Error saveCode:", error);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
+
+  } catch (err) {
+    console.error('ERROR:', err);
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500 });
   }
 }

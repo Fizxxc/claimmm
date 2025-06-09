@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-gray-100">
+  <div class="flex h-screen">
+    <!-- Sidebar -->
+    <div class="bg-purple-700 text-white w-64 p-4 space-y-4">
+      <h1 class="text-2xl font-bold">Admin Panel</h1>
+      <nav class="space-y-2">
+        <button onclick="showForm()" class="block w-full text-left hover:bg-purple-600 p-2 rounded">Tambah Kode</button>
+        <button onclick="showClaimed()" class="block w-full text-left hover:bg-purple-600 p-2 rounded">Data Claimer</button>
+      </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 overflow-auto" id="main">
+      <h2 class="text-xl font-bold mb-4">Selamat datang admin!</h2>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ref, set, get } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+    import { db } from "./firebase.js";
+    import { saveCode } from "./saveCode.js";
+
+    window.showForm = () => {
+      document.getElementById("main").innerHTML = `
+        <h2 class="text-lg font-bold mb-2">Tambah Kode</h2>
+        <form id="kodeForm" class="space-y-2">
+          <input type="text" id="kodeInput" placeholder="Kode Lengkap (contoh: A-B-C-D-E-F)" class="border p-2 w-full rounded" required>
+          <button type="submit" class="bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700">Simpan</button>
+        </form>
+      `;
+
+      document.getElementById("kodeForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        const kode = document.getElementById("kodeInput").value.trim();
+
+        if (!kode) {
+          Swal.fire("Error", "Masukkan kode terlebih dahulu", "error");
+          return;
+        }
+
+        try {
+          await saveCode(kode);
+          Swal.fire("Sukses", "Kode berhasil disimpan", "success");
+          document.getElementById("kodeForm").reset();
+        } catch (err) {
+          Swal.fire("Error", "Gagal menyimpan kode", "error");
+          console.error(err);
+        }
+      });
+    };
+
+    window.showClaimed = async () => {
+      const main = document.getElementById("main");
+      main.innerHTML = `<h2 class="text-lg font-bold mb-2">Data Claimer</h2><ul id="claimerList" class="space-y-1 max-h-[400px] overflow-auto border p-2 rounded"></ul>`;
+
+      try {
+        const snapshot = await get(ref(db, "claimed"));
+        const list = document.getElementById("claimerList");
+        list.innerHTML = "";
+
+        if (snapshot.exists()) {
+          const claimedData = snapshot.val();
+          Object.keys(claimedData).forEach(userId => {
+            const li = document.createElement("li");
+            li.textContent = userId;
+            li.classList.add("p-1", "border-b", "border-gray-300");
+            list.appendChild(li);
+          });
+        } else {
+          list.innerHTML = "<p>Tidak ada data.</p>";
+        }
+      } catch (err) {
+        Swal.fire("Error", "Gagal mengambil data claimer", "error");
+        console.error(err);
+      }
+    };
+  </script>
+</body>
+</html>

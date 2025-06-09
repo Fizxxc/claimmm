@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Claim Akun</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md">
+    <h2 class="text-2xl font-bold mb-4 text-center">Claim Akun</h2>
+    <form id="claimForm" class="space-y-4">
+      <div class="grid grid-cols-2 gap-2">
+        <input type="text" maxlength="10" class="border p-2 rounded" placeholder="Kode 1" required />
+      </div>
+      <input type="text" id="userId" class="w-full border p-2 rounded" placeholder="Masukkan ID Anda" required />
+      <button type="submit" class="bg-purple-600 text-white w-full py-2 rounded hover:bg-purple-700">Claim</button>
+    </form>
+  </div>
+
+  <script type="module">
+    import { ref, get, set } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+    import { db } from "./firebase.js";
+
+    const claimForm = document.getElementById("claimForm");
+
+    claimForm.addEventListener("submit", async e => {
+      e.preventDefault();
+
+      const inputs = claimForm.querySelectorAll("input[type=text]");
+      const codes = Array.from(inputs).slice(0,6).map(i => i.value.trim()).join("-");
+      const userId = document.getElementById("userId").value.trim();
+
+      if (!userId) {
+        Swal.fire("Error", "Masukkan ID Anda", "error");
+        return;
+      }
+
+      const codeRef = ref(db, `codes/${codes}`);
+      const userRef = ref(db, `claimed/${userId}`);
+
+      try {
+        const codeSnap = await get(codeRef);
+        if (!codeSnap.exists()) {
+          Swal.fire("Gagal", "Kode tidak valid", "error");
+          return;
+        }
+
+        const userSnap = await get(userRef);
+        if (userSnap.exists()) {
+          Swal.fire("Gagal", "Akun sudah pernah claim", "error");
+          return;
+        }
+
+        await set(userRef, true);
+        Swal.fire("Berhasil", "Claim berhasil!", "success");
+        claimForm.reset();
+      } catch (err) {
+        Swal.fire("Error", "Terjadi kesalahan. Coba lagi.", "error");
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>

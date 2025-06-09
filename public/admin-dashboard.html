@@ -1,88 +1,184 @@
 <!DOCTYPE html>
-<html lang="en" >
+<html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body class="bg-gray-100">
-  <div class="flex h-screen">
-    <!-- Sidebar -->
-    <div class="bg-purple-700 text-white w-64 p-4 space-y-4">
-      <h1 class="text-2xl font-bold">Admin Panel</h1>
-      <nav class="space-y-2">
-        <button onclick="showForm()" class="block w-full text-left hover:bg-purple-600 p-2 rounded">Tambah Kode</button>
-        <button onclick="showClaimed()" class="block w-full text-left hover:bg-purple-600 p-2 rounded">Data Claimer</button>
-      </nav>
+
+<body class="bg-gray-100 flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-purple-700 text-white p-4 flex items-center justify-between md:hidden">
+        <button id="btnToggleSidebar" aria-label="Toggle menu" class="focus:outline-none">
+            <!-- Hamburger icon -->
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+        </button>
+        <h1 class="font-bold text-lg">Admin Panel</h1>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+
+        <!-- Sidebar -->
+        <nav id="sidebar" class="bg-purple-700 text-white w-64 p-4 space-y-6
+      hidden md:block md:flex-shrink-0">
+
+            <h1 class="text-2xl font-bold">Admin Panel</h1>
+            <ul class="space-y-2">
+                <li>
+                    <button onclick="showForm()" class="block w-full text-left hover:bg-purple-600 p-2 rounded">Tambah
+                        Kode</button>
+                </li>
+                <li>
+                    <button onclick="showClaimed()" class="block w-full text-left hover:bg-purple-600 p-2 rounded">Data
+                        Claimer</button>
+                </li>
+                <li>
+                    <button onclick="showClaimedDetail()"
+                        class="block w-full text-left hover:bg-purple-600 p-2 rounded">Info Akun Claim</button>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main id="main" class="flex-1 p-6 overflow-auto">
+            <h2 class="text-xl font-bold mb-4">Selamat datang admin!</h2>
+            <p>Pilih menu di samping untuk mulai.</p>
+        </main>
+
     </div>
 
-    <!-- Main Content -->
-    <div class="flex-1 p-6 overflow-auto" id="main">
-      <h2 class="text-xl font-bold mb-4">Selamat datang admin!</h2>
-    </div>
-  </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
-  <script type="module">
-    import { ref, set, get } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
-    import { db } from "./firebase.js";
-    import { saveCode } from "./saveCode.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlNHkA1f-1GwBN0nBchMtIwEYUNLlq8FQ",
+            authDomain: "e-commerce-a6fe2.firebaseapp.com",
+            databaseURL: "https://e-commerce-a6fe2-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "e-commerce-a6fe2",
+            storageBucket: "e-commerce-a6fe2.firebasestorage.app",
+            messagingSenderId: "169688929056",
+            appId: "1:169688929056:web:8d04f0b02c98fa77d1bd45",
+            measurementId: "G-Q8FP7FQQHV"
+        };
 
-    window.showForm = () => {
-      document.getElementById("main").innerHTML = `
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        if (localStorage.getItem("admin") !== "true") {
+            window.location.href = "/admin-login.html";
+        }
+        // Sidebar toggle button (for mobile)
+        const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+        const sidebar = document.getElementById('sidebar');
+        btnToggleSidebar.addEventListener('click', () => {
+            sidebar.classList.toggle('hidden');
+        });
+
+        // Show form tambah kode
+        window.showForm = () => {
+            document.getElementById("main").innerHTML = `
         <h2 class="text-lg font-bold mb-2">Tambah Kode</h2>
         <form id="kodeForm" class="space-y-2">
-          <input type="text" id="kodeInput" placeholder="Kode Lengkap (contoh: A-B-C-D-E-F)" class="border p-2 w-full rounded" required>
-          <button type="submit" class="bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700">Simpan</button>
-        </form>
+          <input type="text" id="inputKode" placeholder="Kode Lengkap (contoh: A-B-C-D-E-F)" class="border p-2 w-full rounded" required />
+          <button class="bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700">Simpan</button>
+        </form>`;
+
+            document.getElementById("kodeForm").addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const kode = document.getElementById("inputKode").value.trim();
+                if (!kode) return;
+
+                try {
+                    // Simpan kode ke Firebase lewat API (atau langsung ke DB)
+                    // Gunakan fetch ke /api/saveCode
+                    const res = await fetch('/api/saveCode', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: kode })
+                    });
+
+                    if (!res.ok) throw new Error('Gagal menyimpan kode');
+
+                    Swal.fire("Sukses", "Kode berhasil disimpan", "success");
+                    document.getElementById("kodeForm").reset();
+                } catch (err) {
+                    Swal.fire("Error", err.message, "error");
+                }
+            });
+        };
+
+        // Tampilkan list userId yang claim saja
+        window.showClaimed = async () => {
+            const main = document.getElementById("main");
+            main.innerHTML = `<h2 class="text-lg font-bold mb-2">Data Claimer</h2><ul id="claimerList" class="space-y-1 max-h-[60vh] overflow-auto border rounded p-2 bg-white"></ul>`;
+
+            try {
+                const snapshot = await get(ref(db, `claimed`));
+                if (snapshot.exists()) {
+                    const list = document.getElementById("claimerList");
+                    list.innerHTML = '';
+                    Object.keys(snapshot.val()).forEach(userId => {
+                        const li = document.createElement("li");
+                        li.textContent = userId;
+                        li.classList.add("border-b", "py-1");
+                        list.appendChild(li);
+                    });
+                } else {
+                    document.getElementById("claimerList").innerHTML = "<p>Tidak ada data.</p>";
+                }
+            } catch {
+                document.getElementById("claimerList").innerHTML = "<p>Error mengambil data.</p>";
+            }
+        };
+
+        // Tampilkan list userId dan kode claim yang dipakai
+        window.showClaimedDetail = async () => {
+            const main = document.getElementById("main");
+            main.innerHTML = `
+        <h2 class="text-lg font-bold mb-2">Info Akun Claim</h2>
+        <table class="table-auto w-full text-left border-collapse border border-gray-300">
+          <thead>
+            <tr class="bg-purple-600 text-white">
+              <th class="border border-gray-300 px-3 py-1">User ID</th>
+              <th class="border border-gray-300 px-3 py-1">Kode Claim</th>
+            </tr>
+          </thead>
+          <tbody id="claimDetailBody" class="bg-white"></tbody>
+        </table>
       `;
 
-      document.getElementById("kodeForm").addEventListener("submit", async e => {
-        e.preventDefault();
-        const kode = document.getElementById("kodeInput").value.trim();
+            try {
+                const snapshot = await get(ref(db, `claimedDetails`));
+                const tbody = document.getElementById("claimDetailBody");
+                tbody.innerHTML = '';
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    Object.entries(data).forEach(([userId, kode]) => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+              <td class="border border-gray-300 px-3 py-1">${userId}</td>
+              <td class="border border-gray-300 px-3 py-1">${kode}</td>
+            `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="2" class="text-center py-3">Tidak ada data.</td></tr>`;
+                }
+            } catch {
+                tbody.innerHTML = `<tr><td colspan="2" class="text-center py-3">Error mengambil data.</td></tr>`;
+            }
+        };
+    </script>
 
-        if (!kode) {
-          Swal.fire("Error", "Masukkan kode terlebih dahulu", "error");
-          return;
-        }
-
-        try {
-          await saveCode(kode);
-          Swal.fire("Sukses", "Kode berhasil disimpan", "success");
-          document.getElementById("kodeForm").reset();
-        } catch (err) {
-          Swal.fire("Error", "Gagal menyimpan kode", "error");
-          console.error(err);
-        }
-      });
-    };
-
-    window.showClaimed = async () => {
-      const main = document.getElementById("main");
-      main.innerHTML = `<h2 class="text-lg font-bold mb-2">Data Claimer</h2><ul id="claimerList" class="space-y-1 max-h-[400px] overflow-auto border p-2 rounded"></ul>`;
-
-      try {
-        const snapshot = await get(ref(db, "claimed"));
-        const list = document.getElementById("claimerList");
-        list.innerHTML = "";
-
-        if (snapshot.exists()) {
-          const claimedData = snapshot.val();
-          Object.keys(claimedData).forEach(userId => {
-            const li = document.createElement("li");
-            li.textContent = userId;
-            li.classList.add("p-1", "border-b", "border-gray-300");
-            list.appendChild(li);
-          });
-        } else {
-          list.innerHTML = "<p>Tidak ada data.</p>";
-        }
-      } catch (err) {
-        Swal.fire("Error", "Gagal mengambil data claimer", "error");
-        console.error(err);
-      }
-    };
-  </script>
 </body>
+
 </html>

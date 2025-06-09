@@ -3,62 +3,97 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Claim Akun</title>
+  <title>Claim Kode</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md">
-    <h2 class="text-2xl font-bold mb-4 text-center">Claim Akun</h2>
-    <form id="claimForm" class="space-y-4">
-      <div class="grid grid-cols-2 gap-2">
-        <input type="text" maxlength="10" class="border p-2 rounded" placeholder="Kode 1" required />
-      </div>
-      <input type="text" id="userId" class="w-full border p-2 rounded" placeholder="Masukkan ID Anda" required />
-      <button type="submit" class="bg-purple-600 text-white w-full py-2 rounded hover:bg-purple-700">Claim</button>
-    </form>
-  </div>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+  <h1 class="text-3xl font-bold mb-6">Form Claim Kode</h1>
+
+  <form id="claimForm" class="bg-white p-6 rounded shadow-md w-full max-w-md space-y-4">
+    <label class="block font-semibold">
+      User ID:
+      <input type="text" id="userId" required placeholder="Masukkan User ID" class="mt-1 block w-full border rounded p-2" />
+    </label>
+
+    <label class="block font-semibold">
+      Kode (contoh: ABCDEF atau A-B-C-D-E-F):
+      <input type="text" id="code" required placeholder="Masukkan Kode" class="mt-1 block w-full border rounded p-2" />
+    </label>
+
+    <button type="submit" class="w-full bg-purple-600 text-white py-2 rounded hover:bg-purple-700">
+      Claim Kode
+    </button>
+  </form>
 
   <script type="module">
-    import { ref, get, set } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
-    import { db } from "./firebase.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
-    const claimForm = document.getElementById("claimForm");
+    const firebaseConfig = {
+    apiKey: "AIzaSyBlNHkA1f-1GwBN0nBchMtIwEYUNLlq8FQ",
+    authDomain: "e-commerce-a6fe2.firebaseapp.com",
+    databaseURL: "https://e-commerce-a6fe2-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "e-commerce-a6fe2",
+    storageBucket: "e-commerce-a6fe2.firebasestorage.app",
+    messagingSenderId: "169688929056",
+    appId: "1:169688929056:web:8d04f0b02c98fa77d1bd45",
+    measurementId: "G-Q8FP7FQQHV"
+  };
 
-    claimForm.addEventListener("submit", async e => {
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    document.getElementById("claimForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const inputs = claimForm.querySelectorAll("input[type=text]");
-      const codes = Array.from(inputs).slice(0,6).map(i => i.value.trim()).join("-");
       const userId = document.getElementById("userId").value.trim();
+      let codeRaw = document.getElementById("code").value.trim();
 
       if (!userId) {
-        Swal.fire("Error", "Masukkan ID Anda", "error");
+        Swal.fire("Error", "User ID harus diisi", "error");
         return;
       }
 
-      const codeRef = ref(db, `codes/${codes}`);
-      const userRef = ref(db, `claimed/${userId}`);
+      if (!codeRaw) {
+        Swal.fire("Error", "Kode harus diisi", "error");
+        return;
+      }
+
+      // Normalisasi kode: hapus spasi dan strip, ubah ke huruf besar
+      const code = codeRaw.replace(/[-\s]/g, "").toUpperCase();
+
+      if (code.length !== 6) {
+        Swal.fire("Error", "Kode harus terdiri dari 6 karakter", "error");
+        return;
+      }
 
       try {
-        const codeSnap = await get(codeRef);
+        // Cek kode valid di database (format kode disimpan tanpa strip dan uppercase)
+        const codeSnap = await get(ref(db, `codes/${code}`));
         if (!codeSnap.exists()) {
           Swal.fire("Gagal", "Kode tidak valid", "error");
           return;
         }
 
-        const userSnap = await get(userRef);
+        // Cek user sudah claim atau belum
+        const userSnap = await get(ref(db, `claimed/${userId}`));
         if (userSnap.exists()) {
-          Swal.fire("Gagal", "Akun sudah pernah claim", "error");
+          Swal.fire("Gagal", "User sudah pernah claim kode", "error");
           return;
         }
 
-        await set(userRef, true);
-        Swal.fire("Berhasil", "Claim berhasil!", "success");
-        claimForm.reset();
-      } catch (err) {
-        Swal.fire("Error", "Terjadi kesalahan. Coba lagi.", "error");
-        console.error(err);
+        // Simpan claim user
+        await set(ref(db, `claimed/${userId}`), true);
+        // Simpan detail user + kode yang dipakai
+        await set(ref(db, `claimedDetails/${userId}`), code);
+
+        Swal.fire("Berhasil", `Kode ${code} berhasil di-claim!`, "success");
+        e.target.reset();
+      } catch (error) {
+        Swal.fire("Error", error.message || "Terjadi kesalahan", "error");
       }
     });
   </script>
